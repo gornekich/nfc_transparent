@@ -21,7 +21,6 @@ typedef struct {
 
 void signal_append(DigitaSignal *signal_a, DigitaSignal *signal_b) {
   bool end_level = signal_a->start_level ^ !(signal_a->edge_cnt % 2);
-  fprintf(stderr, "end_level: %d ", end_level);
   __uint8_t start_copy = 0;
   if (end_level == signal_b->start_level) {
     signal_a->edge_timings[signal_a->edge_cnt - 1] += signal_b->edge_timings[0];
@@ -69,7 +68,6 @@ void nfca_add_byte(DigitaSignal* signal, __uint8_t byte, bool parity) {
     } else {
         signal_append(signal, &zero);
     }
-    fprintf(stderr, "parity: %d ", parity);
 }
 
 void prepare_tim_auto_reload(DigitaSignal* signal, __uint32_t* arr) {
