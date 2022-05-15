@@ -12,7 +12,7 @@ static void print_signal(DigitalSignal *signal) {
 }
 
 int main() {
-  DigitalSignal *signal_a = digital_signal_alloc(10000);
+  DigitalSignal *signal_a = digital_signal_alloc(5000);
   // Start of frame
   nfca_add_bit(signal_a, true);
   // Data
@@ -24,14 +24,22 @@ int main() {
   print_signal(signal_a);
 
   uint8_t data_2[] = {0xaa, 0xbb};
-  DigitalSignal* signal_b = digital_signal_alloc(10000);
+  DigitalSignal* signal_b = digital_signal_alloc(5000);
   for(size_t i = 0; i < sizeof(data_2); i++) {
     nfca_add_byte(signal_b, data_2[i], false);
   }
   print_signal(signal_b);
 
+  uint8_t data_3[] = {0xff, 0xce, 0x12, 0x22};
+  DigitalSignal* signal_c = digital_signal_alloc(5000);
+  for(size_t i = 0; i < 1; i++) {
+    nfca_add_byte(signal_c, data_3[i], true);
+  }
+  print_signal(signal_c);
+
   digital_signal_free(signal_a);
   digital_signal_free(signal_b);
+  digital_signal_free(signal_c);
 
   return 0;
 }
