@@ -1,5 +1,6 @@
 #include "digital_signal/digital_signal.h"
 #include "digital_signal/protocols/nfca.h"
+#include "digital_signal/protocols/uart.h"
 
 #include <stdio.h>
 
@@ -21,25 +22,26 @@ int main() {
   for (uint8_t i = 0; i < 18; i++) {
     nfca_add_byte(signal_a, data[i], true);
   }
-  print_signal(signal_a);
+  // print_signal(signal_a);
 
-  uint8_t data_2[] = {0xaa, 0xbb};
-  DigitalSignal* signal_b = digital_signal_alloc(5000);
-  for(size_t i = 0; i < sizeof(data_2); i++) {
-    nfca_add_byte(signal_b, data_2[i], false);
-  }
-  print_signal(signal_b);
+  uint8_t uart_data[] = {0x55, 0xaa, 0xcc, 0x12};
+  UartEncoder *uart = uart_encoder_alloc(10);
+  UartConfig config = {
+      .baudrate = UrtBaudrate115200,
+      .bit_order = UartBitOrderLSB,
+      .parity_bit = UartParityBitNone,
+      .polarity = UartPolarityNormal,
+      .stop_bit = UartStopBit1,
+  };
 
-  uint8_t data_3[] = {0xff, 0xce, 0x12, 0x22};
-  DigitalSignal* signal_c = digital_signal_alloc(5000);
-  for(size_t i = 0; i < 1; i++) {
-    nfca_add_byte(signal_c, data_3[i], true);
-  }
-  print_signal(signal_c);
+  uart_config(uart, &config);
+
+  uart_encode(uart, uart_data, sizeof(uart_data));
+
+  print_signal(uart->signal);
 
   digital_signal_free(signal_a);
-  digital_signal_free(signal_b);
-  digital_signal_free(signal_c);
+  uart_free(uart);
 
   return 0;
 }
