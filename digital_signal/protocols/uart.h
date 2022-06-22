@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../digital_signal.h"
-#include "../digital_signal_i.h"
 
 typedef enum {
   UrtBaudrate9600 = 9600,

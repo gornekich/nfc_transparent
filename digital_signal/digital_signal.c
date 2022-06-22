@@ -1,16 +1,18 @@
 #include "digital_signal.h"
-#include "digital_signal_i.h"
 
 #include <assert.h>
-#include <string.h>
 #include <math.h>
+#include <string.h>
 
 #define F_TIM (64000000.0)
 #define T_TIM (1.0 / F_TIM)
 
 DigitalSignal *digital_signal_alloc(uint32_t max_edges_cnt) {
   DigitalSignal *signal = malloc(sizeof(DigitalSignal));
+  signal->start_level = true;
+  signal->edges_max_cnt = max_edges_cnt;
   signal->edge_timings = malloc(max_edges_cnt * sizeof(float));
+  signal->reload_reg_buff = malloc(max_edges_cnt * sizeof(uint32_t));
   signal->edge_cnt = 0;
 
   return signal;
@@ -18,7 +20,9 @@ DigitalSignal *digital_signal_alloc(uint32_t max_edges_cnt) {
 
 void digital_signal_free(DigitalSignal *signal) {
   assert(signal);
+
   free(signal->edge_timings);
+  free(signal->reload_reg_buff);
   free(signal);
 }
 
@@ -26,15 +30,23 @@ bool digital_signal_append(DigitalSignal *signal_a, DigitalSignal *signal_b) {
   assert(signal_a);
   assert(signal_b);
 
-  bool end_level = signal_a->start_level ^ !(signal_a->edge_cnt % 2);
+  if (signal_a->edges_max_cnt < signal_a->edge_cnt + signal_b->edge_cnt) {
+    return false;
+  }
+
+  bool end_level = signal_a->start_level;
+  if (signal_a->edge_cnt) {
+    end_level = signal_a->start_level ^ !(signal_a->edge_cnt % 2);
+  }
   uint8_t start_copy = 0;
   if (end_level == signal_b->start_level) {
-    if(signal_a->edge_cnt) {
-      signal_a->edge_timings[signal_a->edge_cnt - 1] += signal_b->edge_timings[0];
+    if (signal_a->edge_cnt) {
+      signal_a->edge_timings[signal_a->edge_cnt - 1] +=
+          signal_b->edge_timings[0];
+      start_copy += 1;
     } else {
       signal_a->edge_timings[signal_a->edge_cnt] += signal_b->edge_timings[0];
     }
-    start_copy += 1;
   }
   memcpy(&signal_a->edge_timings[signal_a->edge_cnt],
          &signal_b->edge_timings[start_copy],
@@ -44,7 +56,7 @@ bool digital_signal_append(DigitalSignal *signal_a, DigitalSignal *signal_b) {
   return true;
 }
 
-void prepare_tim_auto_reload(DigitalSignal *signal, uint32_t *arr) {
+void digital_signal_prepare_arr(DigitalSignal *signal, uint32_t *arr) {
   float t_signal = 0;
   float t_current = 0;
   float r = 0;
@@ -56,12 +68,11 @@ void prepare_tim_auto_reload(DigitalSignal *signal, uint32_t *arr) {
     r = (t_signal - t_current) / T_TIM;
     r_dec = modff(r, &r_int);
     if (r_dec < 0.5f) {
-      arr[i] = (uint32_t)r_int - 1;
-
+      signal->reload_reg_buff[i] = (uint32_t)r_int - 1;
     } else {
-      arr[i] = (uint32_t)r_int;
+      signal->reload_reg_buff[i] = (uint32_t)r_int;
     }
-    t_current += (arr[i] + 1) * T_TIM;
+    t_current += (signal->reload_reg_buff[i] + 1) * T_TIM;
   }
 }
 
