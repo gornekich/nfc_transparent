@@ -23,3 +23,5 @@ bool digital_signal_get_start_level(DigitalSignal *signal);
 uint32_t digital_signal_get_edges_cnt(DigitalSignal *signal);
 
 float digital_signal_get_edge(DigitalSignal *signal, uint32_t edge_num);
+
+void digital_signal_prepare_arr(DigitalSignal *signal);

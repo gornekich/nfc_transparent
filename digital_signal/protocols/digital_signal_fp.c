@@ -1,24 +1,28 @@
-#include "digital_signal.h"
+#include "digital_signal_fp.h"
 
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+#include "fix_point.h"
 
 #define F_TIM (64000000.0)
 #define T_TIM (1.0 / F_TIM)
 
-DigitalSignal *digital_signal_alloc(uint32_t max_edges_cnt) {
-  DigitalSignal *signal = malloc(sizeof(DigitalSignal));
+#define T_TIM_Q31 (34)
+#define ONE_BY_TO_Q31 (1073741824)
+
+DigitalSignalFP *digital_signal_fp_alloc(uint32_t max_edges_cnt) {
+  DigitalSignalFP *signal = malloc(sizeof(DigitalSignalFP));
   signal->start_level = true;
   signal->edges_max_cnt = max_edges_cnt;
-  signal->edge_timings = malloc(max_edges_cnt * sizeof(float));
+  signal->edge_timings = malloc(max_edges_cnt * sizeof(uint32_t));
   signal->reload_reg_buff = malloc(max_edges_cnt * sizeof(uint32_t));
   signal->edge_cnt = 0;
 
   return signal;
 }
 
-void digital_signal_free(DigitalSignal *signal) {
+void digital_signal_fp_free(DigitalSignalFP *signal) {
   assert(signal);
 
   free(signal->edge_timings);
@@ -26,7 +30,8 @@ void digital_signal_free(DigitalSignal *signal) {
   free(signal);
 }
 
-bool digital_signal_append(DigitalSignal *signal_a, DigitalSignal *signal_b) {
+bool digital_signal_fp_append(DigitalSignalFP *signal_a,
+                              DigitalSignalFP *signal_b) {
   assert(signal_a);
   assert(signal_b);
 
@@ -56,41 +61,24 @@ bool digital_signal_append(DigitalSignal *signal_a, DigitalSignal *signal_b) {
   return true;
 }
 
-void digital_signal_prepare_arr(DigitalSignal *signal) {
-  float t_signal = 0;
-  float t_current = 0;
-  float r = 0;
-  float r_int = 0;
-  float r_dec = 0;
+void digital_signal_fp_prepare_arr(DigitalSignalFP *signal) {
+  uint64_t t_signal = 0;
+  uint64_t t_current = 0;
+  uint64_t r = 0;
+  uint64_t r_int = 0;
+  uint64_t r_dec = 0;
 
   for (size_t i = 0; i < signal->edge_cnt - 1; i++) {
     t_signal += signal->edge_timings[i];
-    r = (t_signal - t_current) / T_TIM;
-    r_dec = modff(r, &r_int);
-    if (r_dec < 0.5f) {
+
+    r = FDIV(t_signal - t_current, T_TIM_Q31, 31);
+    r_int = r >> 31;
+    r_dec = (r - (r_int << 31));
+    if (r_dec < ONE_BY_TO_Q31) {
       signal->reload_reg_buff[i] = (uint32_t)r_int - 1;
     } else {
       signal->reload_reg_buff[i] = (uint32_t)r_int;
     }
-    t_current += (signal->reload_reg_buff[i] + 1) * T_TIM;
+    t_current += FMUL((uint64_t)(signal->reload_reg_buff[i] + 1) << 31,  T_TIM_Q31, 31);
   }
-}
-
-bool digital_signal_get_start_level(DigitalSignal *signal) {
-  assert(signal);
-
-  return signal->start_level;
-}
-
-uint32_t digital_signal_get_edges_cnt(DigitalSignal *signal) {
-  assert(signal);
-
-  return signal->edge_cnt;
-}
-
-float digital_signal_get_edge(DigitalSignal *signal, uint32_t edge_num) {
-  assert(signal);
-  assert(edge_num < signal->edge_cnt);
-
-  return signal->edge_timings[edge_num];
 }
